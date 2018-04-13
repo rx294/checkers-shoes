@@ -116,8 +116,10 @@ end
 Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
 # Shoes.app(title: "Checkers", width: 1000, height: 1000, resizable: false) do
     @pieces = Array.new(CHECKERS_WIDTH) { Array.new(CHECKERS_HEIGHT) }
-    @game = Checkers.new('white')
-    @board = @game.board
+    @board = Board.new
+    @game = Checkers.new('white',@board,'white',10)
+
+    # @board = @game.board
 
   Shoes::show_console
 
@@ -164,7 +166,7 @@ Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
 
 
     # oval top: co_y, left: co_x, radius: 40, center:true
-    animate = animate 2 do
+    animate = animate 30 do
         if @game.game_over?
             $stderr.puts "--------------Game over:--------------"#{}" #{@game.score}"
             $stderr.puts "--------------Black:#{@game.score(HUMAN_PLAYER)}--------------"#{}" #{@game.score}"

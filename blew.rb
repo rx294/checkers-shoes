@@ -11,6 +11,14 @@
  # end
 
 
+require 'colorize'
+require 'set'
+
+
+VERBOSE = false
+AB_VERBOSE  = false
+GAME_VERBOSE  = false
+
 
 BOARD_SQUARE_POS = {board_start: 10, board_end:610 }
 
@@ -21,6 +29,15 @@ INITIAL_BOARD = [
         [ 0, 0, 0, 0, 0, 0],
         [ 0,-1, 0,-1, 0,-1],
         [-1, 0,-1, 0,-1, 0]
+        ] # initial board setting
+
+GRID_SCORE = [
+        [ 0, 4, 0, 4, 0, 4],
+        [ 4, 0, 3, 0, 3, 0],
+        [ 0, 3, 0, 1, 0, 4],
+        [ 4, 0, 1, 0, 3, 0],
+        [ 0, 3, 0, 2, 0, 4],
+        [ 4, 0, 4, 0, 4, 0]
         ] # initial board setting
 
 # INITIAL_BOARD = [
@@ -101,7 +118,7 @@ class Board
   end
 
   def moves(player)
-    @moves[player].sample(@moves[player].count)
+    @moves[player]#.sample(@moves[player].count)
   end
 
   def piece(box)
@@ -130,6 +147,22 @@ class Board
     box[0] < 0 || box[0] >= CHECKERS_HEIGHT || box[1] < 0 || box[1] >= CHECKERS_WIDTH
   end
 
+  # def move(org,dest)
+  #     @state[dest[0]][dest[1]] = @state[org[0]][org[1]]
+  #     @pieces[piece(org).color].delete(org)
+  #     @pieces[piece(org).color].push(dest)
+  #     @state[org[0]][org[1]] = nil
+
+  #     if (dest[0] - org[0]).abs == 2
+  #       captured_box = [org[0] + (dest[0]-org[0])/2 , org[1] + (dest[1]-org[1])/2]
+  #       @pieces[piece(captured_box).color].delete(captured_box)
+  #       @state[captured_box[0]][captured_box[1]] = nil
+  #     end
+  #     # $stderr.puts "WHITE: #{@pieces[CPU_PLAYER]}" if VERBOSE
+  #     # $stderr.puts "BLACK: #{@pieces[HUMAN_PLAYER]}" if VERBOSE
+  #     compute_available_moves
+  # end
+
   def move(org,dest)
       @state[dest[0]][dest[1]] = @state[org[0]][org[1]]
       @pieces[piece(org).color].delete(org)
@@ -141,8 +174,8 @@ class Board
         @pieces[piece(captured_box).color].delete(captured_box)
         @state[captured_box[0]][captured_box[1]] = nil
       end
-      # $stderr.puts "WHITE: #{@pieces[CPU_PLAYER]}"
-      # $stderr.puts "BLACK: #{@pieces[HUMAN_PLAYER]}"
+      # $stderr.puts "WHITE: #{@pieces[CPU_PLAYER]}" if VERBOSE
+      # $stderr.puts "BLACK: #{@pieces[HUMAN_PLAYER]}" if VERBOSE
       compute_available_moves
   end
 
@@ -185,12 +218,12 @@ class Board
 
   def compute_board_score(player)
     score = 0
-    other_player = player.eql?('white') ? 'black' :  'white'
+    # other_player = player.eql?('white') ? 'black' :  'white'
     # score += (pieces[player].length - pieces[other_player].length)
-    score += pieces[player].count
+    # score += pieces[player].count
 
-    # score += (pieces['black'].length - pieces['white'].length)*100 if HEURISTIC1 && player.eql?('black')
-    # score += (pieces['white'].length - pieces['black'].length)*100 if HEURISTIC1 && player.eql?('white')
+    score += (pieces['black'].length - pieces['white'].length)*100 if HEURISTIC1 && player.eql?('black')
+    score += (pieces['white'].length - pieces['black'].length)*100 if HEURISTIC1 && player.eql?('white')
 
     # score += pieces['black'].map{ |x| (5-x[0])*(5-x[0]) }.inject(0, :+) - pieces['white'].map{ |x| x[0]*x[0] }.inject(0, :+) if HEURISTIC2 && player.eql?('black')
     # score += pieces['white'].map{ |x| x[0]*x[0] }.inject(0, :+) - pieces['black'].map{ |x| (5-x[0])*(5-x[0]) }.inject(0, :+) if HEURISTIC2 && player.eql?('white')
@@ -216,7 +249,22 @@ class Board
     #   fancy_score
     # end
     # score += fancy_score(player)
-    # $stderr.puts "fancy score #{score}"
+    # $stderr.puts "fancy score #{score}" if VERBOSE
+    score
+  end
+
+
+  def utility(player)
+    score = @pieces[player].count - @pieces[other_player(player)].count
+    return 0 if score.zero?
+    return  100 if score > 0
+    return -100 if score < 0
+  end
+
+  def evaluate(player)
+    # @pieces[player].count - @pieces[other_player(player)].count
+    score = (pieces['black'].length - pieces['white'].length)*1 if HEURISTIC1 && player.eql?('black')
+    score = (pieces['white'].length - pieces['black'].length)*1 if HEURISTIC1 && player.eql?('white')
     score
   end
 
@@ -248,27 +296,57 @@ class Board
 
 end
 
+  def other_player(player)
+    player.eql?('white') ? 'black' :  'white'
+  end
+
+  def max(*params)
+    params.max
+  end
+
+  def min(*params)
+    params.min
+  end
+
 class Checkers
   attr_reader :board, :turn, :chosen_move
 
-  def initialize(turn)
-    @board = Board.new
+  def initialize(turn,board,player,difficulty)
+    @board = board
     @score = { "black" => 0, "white" => 0 }
     @available_moves = []
-    @difficulty = 4
+    @difficulty = difficulty
+    @player = player
     # @chosen_move = [1, 0, 2, 1]
-    @turn = turn
+    @turn = player
     @max_depth = 0
     @max_nodes = 0
     @test_count = 0
+    @ab_moves = {}
   end
 
 
   def print_board(board)
     p "--------------------------------------------------------------------------------------------------------------"
+    count = 0
+    puts  " | 0  1  2  3  4  5"
+    # puts  "___________________"
     board.each do |line|
-      p line
+      print "#{count}|"
+      line.each do |x|
+        if x.nil?
+          print ' 0 '.colorize(:blue)
+        else
+          print " #{x.color[0]} ".colorize(:yellow) if x.color == 'white'
+          print " #{x.color[0]} ".colorize(:red) if x.color == 'black'
+        end
+      end
+      print "|#{count}"
+      count += 1
+      puts ""
+
     end
+    puts  " | 0  1  2  3  4  5"
     p "--------------------------------------------------------------------------------------------------------------"
   end
 
@@ -277,14 +355,14 @@ class Checkers
   end
 
   def game_over?
-      # $stderr.puts "Game over: test" #{@game.score}""
+      # $stderr.puts "Game over: test" #{@game.score}"" if VERBOSE
       @board.pieces['black'].empty? || @board.pieces['white'].empty? || (@board.moves(HUMAN_PLAYER).empty? && @board.moves(CPU_PLAYER).empty?)
   end
 
 
   def switch_turn
     @turn.eql?('white') ? @turn = 'black' : @turn = 'white'
-    $stderr.puts "switched to #{@turn}"
+    $stderr.puts "switched to #{@turn}" if VERBOSE
   end
 
   def moves_available?(player)
@@ -294,26 +372,32 @@ class Checkers
   def cpu_move 
     @max_depth = 0
     @max_nodes = 0
-    $stderr.puts "WHITE: #{@board.moves(CPU_PLAYER)}"
-    $stderr.puts "BLACK: #{@board.moves(HUMAN_PLAYER)}"
+    $stderr.puts "WHITE: #{@board.moves(CPU_PLAYER)}" if VERBOSE
+    $stderr.puts "BLACK: #{@board.moves(HUMAN_PLAYER)}" if VERBOSE
 
     @test_count = 0
-    $stderr.puts "Moves :#{@board.moves(CPU_PLAYER).length}"
-    if @board.moves(CPU_PLAYER).length == 1
-      @chosen_move = @board.moves(CPU_PLAYER).first
+    $stderr.puts "Moves :#{@board.moves(CPU_PLAYER).length}" if VERBOSE
+    if @board.moves(@player).length == 1
+      @chosen_move = @board.moves(@player).first
     # elsif @board.moves(CPU_PLAYER).length > 4
       # @chosen_move = @board.moves(CPU_PLAYER).first
     else
-      alphabeta_cutoff_search(@board,CPU_PLAYER)
+      # alphabeta_cutoff_search(@board,@player)
       # alpha_beta(CPU_PLAYER,@board,0,-10000,10000)
+      # value = a_b(other_player(@player))
+      @ab_moves = {}
+      value = a_b(@player)
+      $stderr.puts "Value: #{value}" if AB_VERBOSE
+      # $stderr.puts "Move: #{current_move}"
+      @chosen_move = @ab_moves[value].to_a.first#.sample
     end
+    # print_board(@board.state)
+    # $stderr.puts "chosen_move: #{@chosen_move}" 
 
-    $stderr.puts "chosen_move: #{@chosen_move}"
-
-    $stderr.puts "MAX DEPTH: #{@max_depth}"  
-    $stderr.puts "MAX NODES: #{@max_nodes}"  
+    $stderr.puts "MAX DEPTH: #{@max_depth}"   if VERBOSE
+    $stderr.puts "MAX NODES: #{@max_nodes}"   if VERBOSE
     @board.move([@chosen_move[0],@chosen_move[1]],[@chosen_move[2],@chosen_move[3]])
-    @score[CPU_PLAYER] += 1 if (chosen_move[2] - chosen_move[0]).abs == 2
+    @score[@player] += 1 if (chosen_move[2] - chosen_move[0]).abs == 2
   end
 
   def user_move(org,dest)
@@ -328,223 +412,164 @@ class Checkers
 
   def clone_board(board)
     @max_nodes += 1
-    # temp_board = Board.new
-    # CHECKERS_HEIGHT.times.each do |x|
-    #   CHECKERS_WIDTH.times.each do |y|
-    #     temp_board.state[x][y] = board.state[x][y]
-    #   end
-    # end
-    # temp_board.moves = board.moves
-    # temp_board.pieces = board.pieces
     Marshal.load( Marshal.dump(board) )
-    # return temp_board
   end
 
-  def min(a,b)
-    a < b ? a : b
+  def a_b(player)
+    # temp_board = Marshal.load( Marshal.dump(@board) )
+    value = max_value(@board,-1000,1000,0,player)
+    # p "hi am back"
+    puts @ab_moves if AB_VERBOSE
+    value
   end
 
-  def max(a,b)
-    a > b ? a : b
+  def result(board,move)
+    temp_board = Marshal.load( Marshal.dump(board) )
+    temp_board.move([move[0],move[1]],[move[2],move[3]])
+    p move if AB_VERBOSE
+    print_board(temp_board.state) if AB_VERBOSE
+    temp_board
   end
 
-  def alphabeta_cutoff_search(board, player)
-
-    # player = @turn
-
-    def max_value(board, player, alpha, beta, depth,move)
-      board.pieces[player]
-      if depth > @difficulty or board.moves(player).empty? 
-        @max_depth = max(@max_depth,depth)
-        # $stderr.puts "evaluated move for #{player}: #{move}" 
-        return board.compute_board_score(player)
-      end
-      v = -10000000000000000000000000
-      board.moves(player).each do |move|
-        temp_board = clone_board(board)
-        temp_board.move([move[0],move[1]],[move[2],move[3]])
-
-        player.eql?('white') ? player = 'black' : player = 'white'
-
-        v = max(v, min_value(temp_board, player, alpha, beta, depth + 1,move))
-        if v >= beta
-          return v
-        end
-        alpha = max(alpha, v)
-      end
-      return v
+  def max_value(board,alpha,beta,depth,player)
+    puts "max: #{alpha},#{beta},#{depth},#{player}" if AB_VERBOSE
+    # puts "#{board.moves(player).count}, #{board.pieces[player].count}"
+    # print_board(board.state)
+    if board.moves(player).empty? || board.pieces[player].empty?
+      # p "==============================util"
+      # p "==============================util: #{board.utility(player)}"
+      return board.utility(player)
     end
-
-    def min_value(board, player, alpha, beta, depth,move)
-      if depth > @difficulty or board.moves(player).empty? 
-        @max_depth = max(@max_depth,depth)
-        # $stderr.puts "evaluated move for #{player}: #{move}" 
-        return board.compute_board_score(player)
-      end
-      v = 10000000000000000000000000
-      board.moves(player).each do |move|
-        temp_board = clone_board(board)
-        temp_board.move([move[0],move[1]],[move[2],move[3]])
-
-        player.eql?('white') ? player = 'black' : player = 'white'
-
-        v = min(v, max_value(temp_board, player, alpha, beta, depth + 1,move))
-        if v <= alpha
-          return v
-        end
-        beta = min(beta, v)
-      end
-      return v
+    if depth >= @difficulty
+      p "==============================eval: #{board.evaluate(player)}"if AB_VERBOSE
+      return board.evaluate(player)
     end
-    best_score = -10000000
-    beta = 10000000
-
-    board.moves(player).each do |move|
-      temp_board = clone_board(board)
-      temp_board.move([move[0],move[1]],[move[2],move[3]])
-
-      # player = 'black'
-      # player.eql?('white') ? player = 'black' : player = 'white'
-
-      $stderr.puts "||player: #{player}"
-      $stderr.puts "||current move: #{move}"
-
-      v = min_value(temp_board, player, best_score, beta, 1,move)
-       $stderr.puts "v: #{v}"
-      if v > best_score
-        best_score = v
-        $stderr.puts "best_score: #{best_score}"
-        $stderr.puts "chosen_move: #{move}"
-        @chosen_move = move
+    value = -1000
+    p board.moves(player) if AB_VERBOSE
+    board.moves(player).each do |current_move|
+      x = min_value(result(board,current_move),alpha,beta,depth+1,other_player(player))
+      puts "max val: #{value}  x: #{x}  a: #{alpha}  b: #{beta}, depth:#{depth}" if AB_VERBOSE
+      # puts "score black:#{board.evaluate('black').abs} white: #{board.evaluate('white').abs}"
+      value = max(value,x)
+      puts "max val: #{value}" if AB_VERBOSE
+      if depth.zero?
+        @ab_moves[value] = @ab_moves[value] || [].to_set 
+        @ab_moves[value] << current_move
       end
+      if value >= beta
+        p "=====================================================================value >= beta" if AB_VERBOSE
+        return value 
+      end
+      alpha = max(alpha,value)
     end
+    return value
+  end
+
+  def min_value(board,alpha,beta,depth,player)
+    puts "min: #{alpha},#{beta},#{depth},#{player}" if AB_VERBOSE
+    # puts "#{board.moves(player).count}, #{board.pieces[player].count}"
+    # print_board(board.state)
+    if board.moves(player).empty? || board.pieces[player].empty?
+      # p "==============================util: #{board.utility(player)}"
+      return board.utility(player)
+    end
+    if depth >= @difficulty
+      p "==============================eval: #{board.evaluate(player)}" if AB_VERBOSE
+      return board.evaluate(player)
+    end
+    value = 1000
+    # p board.moves(player)
+    board.moves(player).each do |current_move|
+      x = max_value(result(board,current_move),alpha,beta,depth+1,other_player(player))
+      puts "min val: #{value}  x: #{x}  a: #{alpha}  b: #{beta}, depth:#{depth}" if AB_VERBOSE
+      # puts "score black:#{board.evaluate('black').abs} white: #{board.evaluate('white').abs}"
+      value = min(value,x)
+      puts "min val: #{value}" if AB_VERBOSE
+    if value <= alpha
+        p "=====================================================================value <= alpha" if AB_VERBOSE
+      # @chosen_move = current_move
+      return value 
+    end
+      beta = min(beta,value)
+    end
+    # puts "val: #{value}"
+    return value
   end
 
 
-  def alpha_beta(player,board,depth,alpha,beta,move = nil)
-    # $stderr.puts "end_game? #{board.end_game?}"
-    @chosen_move = 0
-    # if depth > @difficulty or board.moves[CPU_PLAYER].empty? or board.moves[HUMAN_PLAYER].empty?
-    if depth > @difficulty #or board.pieces[CPU_PLAYER].empty? or board.pieces[HUMAN_PLAYER].empty?
-      @test_count +=1
-      # $stderr.puts "||||||score #{player} : #{board.compute_board_score(player)}"
-      # $stderr.puts "score #{player} : #{board.compute_board_score(player)}"
-      $stderr.puts "evaluated move for #{player}: #{move}" 
-      return board.compute_board_score(player)
-    end
-    @max_depth = depth if @max_depth < depth
-
-    if player.eql?(@turn)
-      board.moves(player).each do |move|
-        temp_board = clone_board(board)
-        # temp_board = Marshal.load( Marshal.dump(board) )
-
-        temp_board.move([move[0],move[1]],[move[2],move[3]])
-
-        
-        player.eql?('white') ? player = 'black' : player = 'white'
-
-        board_score = alpha_beta(player,temp_board,depth+1,alpha,beta,move)
-
-        if board_score > alpha
-          @chosen_move = [move[0],move[1],move[2],move[3]] if depth.zero?
-          alpha = board_score
-        end
-
-        if alpha >= beta
-          return alpha
-        end
-      end
-      return alpha
-    else
-      board.moves(player).each do |move|
-        temp_board = clone_board(board)
-        # temp_board = Marshal.load( Marshal.dump(board) )
-
-        temp_board.move([move[0],move[1]],[move[2],move[3]])
-
-        player.eql?('white') ? player = 'black' : player = 'white'
-
-        board_score = alpha_beta(player,temp_board,depth+1,alpha,beta,move)
-        # p board_score
-        if board_score < alpha
-          beta = board_score
-        end
-
-        if alpha >= beta
-          return beta
-        end
-      end
-      return beta
-    end
-  end
-
-  # def alpha_beta(player,board,depth,alpha,beta)
-  #   if depth > @difficulty or board.end_game?
-  #     # puts "|||||||||||||||||||||||||#{board.compute_board_score(player)}|||||||||||||||||||||"
-  #     return board.compute_board_score(player)
-  #   end
-  #   if player.eql?(@turn)
-  #     board.moves(player).each do |move|
-  #       # temp_board = Marshal.load( Marshal.dump(board) )
-  #       temp_board = clone_board(board)
-
-  #       # p move
-  #       # p temp_board.state[move[0],move[1]]
-  #       # p temp_board.state[move[2],move[3]]
-  #       # p temp_board.state[0,0]
-  #       # p player
-  #       # print_board(temp_board.state)
-  #       temp_board.move([move[0],move[1]],[move[2],move[3]])
-  #       # print_board(temp_board.state)
-
-        
-  #       player.eql?('white') ? player = 'black' : player = 'white'
-
-  #       board_score = alpha_beta(player,temp_board,depth+1,alpha,beta)
-
-  #       if board_score > alpha
-  #         @chosen_move = [move[0],move[1],move[2],move[3]] if depth.zero?
-  #         # p @chosen_move
-  #         alpha = board_score
-  #       end
-
-  #       if alpha >= beta
-  #         return alpha
-  #       end
-  #     end
-  #     return alpha
-  #   else
-  #     board.moves(player).each do |move|
-  #       # temp_board = Marshal.load( Marshal.dump(board) )
-  #       temp_board = clone_board(board)
-  #       # p player
-  #       # print_board(temp_board.state)
-  #       temp_board.move([move[0],move[1]],[move[2],move[3]])
-  #       # print_board(temp_board.state)
-
-  #       player.eql?('white') ? player = 'black' : player = 'white'
-
-  #       board_score = alpha_beta(player,temp_board,depth+1,alpha,beta)
-  #       # p board_score
-  #       if board_score < alpha
-  #         beta = board_score
-  #       end
-
-  #       if alpha >= beta
-  #         return beta
-  #       end
-  #     end
-  #     return beta
-  #   end
-  # end
 end
 
-# @game = Checkers.new('white')
 
-# # @game.print_board(@game.board.state)
-# # @game.print_board(@game.clone_board(@game.board).state)
-# # @game.print_board(@game.board.state)
+
+#   board = Board.new
+
+#   white = Checkers.new('white',board,'white',3)
+
+# white.cpu_move
+
+#   black = Checkers.new('black',board,'black',3)
+# black.cpu_move
+
+
+
+black_win_count = 0
+white_win_count = 0
+draw = 0
+(1..1).each do |x|
+
+  board = Board.new
+  white = Checkers.new('white',board,'white',14)
+
+# white.cpu_move
+
+  black = Checkers.new('black',board,'black',5)
+# black.cpu_move
+
+  white.print_board(board.state)  if VERBOSE
+
+  while !(white.game_over? || black.game_over?)
+
+    p board.moves('black') if GAME_VERBOSE
+    black.cpu_move if !board.moves('black').empty?
+    print " BLACK ".colorize(:red) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
+
+
+    p board.moves('white') if GAME_VERBOSE
+    white.cpu_move if !board.moves('white').empty? 
+    print " WHITE ".colorize(:yellow) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
+
+end
+# puts "--------------------------------------------------------------------------------------------------------------"
+# puts "--------------------------------------------------------------------------------------------------------------"
+# puts "--------------------------------------------------------------------------------------------------------------"
+# puts "--------------------------------------------------------------------------------------------------------------"
+
+#   puts "--------------Game over:--------------" if VERBOSE#{}" #{@game.score}" if VERBOSE
+#   puts "--------------white:#{white.score('white')}--------------"if VERBOSE
+#   puts "--------------black:#{black.score('black')}--------------" if VERBOSE
+
+  white_win_count += 1 if (white.score('white') > black.score('black'))
+  black_win_count += 1 if (black.score('black') > white.score('white'))
+  draw += 1 if (white.score('white') == black.score('black'))
+end
+
+# # (1..20).each do |x|
+  puts "black win #{black_win_count}"
+  puts "white win #{white_win_count}"
+  puts "draw win #{draw}"
+# end
+
+# p max(1,2,4)
+
+
+
+
+# def initialize(turn,board,player,difficulty)
+# @game.print_board(@game.board.state)
+# @game.print_board(@game.clone_board(@game.board).state)
+# @game.print_board(@game.board.state)
 
 #     if @game.turn.eql?(CPU_PLAYER)
 #         @game.cpu_move
