@@ -53,14 +53,59 @@ def de_highlight(box)
     @pieces[box[0]][box[1]].stroke = blue
 end
 
+def get_trail(org,dest)
+  o_left, o_top = get_co_x_y(org[0],org[1])
+  d_left, d_top = get_co_x_y(dest[0],dest[1])
+
+  left_step = ((d_left - o_left)/10) #((d_left - o_left)/(d_left - o_left).abs)*  
+  top_step  = ((d_top - o_top)/10)   #((d_top - o_top)  /(d_top - o_top).abs)*   
+
+  $stderr.puts "#{o_left},#{o_top}"
+  $stderr.puts "#{d_left},#{d_top}"
+  $stderr.puts "#{left_step},#{top_step}"
+
+
+  trail = []
+  (0..10).each do |i|
+    trail << [o_top+top_step*i, o_left+left_step*i]
+  end
+  $stderr.puts "#{trail}"
+  trail
+end
+
+
 def move_piece(org,dest)
     if (dest[0] - org[0]).abs == 2
       captured_box = [org[0] + (dest[0]-org[0])/2 , org[1] + (dest[1]-org[1])/2]
       @pieces[captured_box[0]][captured_box[1]].remove
     end
 
+
+    # $stderr.puts "#{@pieces[org[0]][org[1]].inspect}"
+    # piece_color = @board.state[dest[0]][dest[1]].color
+
+
+    # trail = get_trail(org,dest)
+    #   i = 0
+    #   j = i*0.5
+    #   stroke blue
+    #   strokewidth 4
+    #   fill black if piece_color.eql?('black')
+    #   fill white if piece_color.eql?('white')
+    #   ball = oval top: trail[0][0], left: trail[0][1], radius: 40, center:true
+
+
+    # a = animate 60 do |i|
+    #   ball.top  = trail[i][0]
+    #   ball.left = trail[i][1]
+    #   a.stop if i >= 39
+    # end
+
     @pieces[org[0]][org[1]].remove
-    @pieces[dest[0]][dest[1]] = draw_piece(dest[0],dest[1],@board.state[dest[0]][dest[1]])
+
+
+    # @pieces[dest[0]][dest[1]] = ball
+    # @pieces[dest[0]][dest[1]] = draw_piece(dest[0],dest[1],@board.state[dest[0]][dest[1]])
 end
 
 def capture_piece(org,dest)
@@ -139,22 +184,10 @@ def game_running?
   @game_running
 end
 
-def show_winner
-  if (@game.score(CPU_PLAYER) == @game.score(HUMAN_PLAYER))
-    @message = "Game over\n\n Its a DRAW people!!!" 
-  elsif (@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER))
-    @message = "Game over\n\nWINNER: #{CPU_PLAYER.upcase}!!!"
-  else
-    @message = "Game over\n\nWINNER: #{HUMAN_PLAYER.upcase}!!!"
-  end
-  @message += "\n\nBLACK SCORE:#{@game.score(HUMAN_PLAYER)}\nWHITE SCORE:#{@game.score(CPU_PLAYER)}"
-
-  # @message = "WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER.upcase : HUMAN_PLAYER.upcase}"
-
-  alert("#{@message}")
-end
 
 Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
+
+    Shoes::show_console
   
   @game_running = false
   background rgb(240,248,255)
@@ -168,7 +201,7 @@ Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
     @start = button "START/RESTART", top: 160, font: "Menlo Bold 14",width: 220
   end
 
-  @stats = stack left: 620,top: 300, width: 220 do
+  @stats = stack left: 620,top: 360, width: 220 do
      @msg = para 
      @whos_turn = para
      @b_score = para 
@@ -198,7 +231,9 @@ Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
     if game_running?
       update_stats
       if @game.game_over?
-        show_winner
+        @message = "WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER.upcase : HUMAN_PLAYER.upcase}"
+        alert("Game over\n\n WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER.upcase : HUMAN_PLAYER.upcase}\n\nBLACK SCORE:#{@game.score(HUMAN_PLAYER)}\nWHITE SCORE:#{@game.score(CPU_PLAYER)}")
+        # animate.stop
         @game_running = false
       end
       if @game.turn.eql?(HUMAN_PLAYER) && !@game.moves_available?(HUMAN_PLAYER)
