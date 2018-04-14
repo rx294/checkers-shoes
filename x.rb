@@ -17,8 +17,8 @@ def draw_piece(x,y,peice)
     co_x, co_y = get_co_x_y(x,y)
     stroke blue
     strokewidth 4
-    fill black if peice.color.eql?('black')
-    fill white if peice.color.eql?('white')
+    fill black if peice.color.eql?(HUMAN_PLAYER)
+    fill white if peice.color.eql?(CPU_PLAYER)
     oval top: co_y, left: co_x, radius: 40, center:true
 end
 
@@ -87,7 +87,7 @@ end
 
 def update_stats
     @msg.replace        "Message: #{@message}\n"
-    @whos_turn.replace  "TURN       :#{@game.turn.upcase}"
+    @whos_turn.replace  "TURN       :#{@game.turn}"
     @b_score.replace    "BLACK SCORE:#{@game.score(HUMAN_PLAYER)}"
     @w_score.replace    "WHITE SCORE:#{@game.score(CPU_PLAYER)}"
     @time_taken.replace "TIME TAKEN :#{@game.time_taken}s " 
@@ -127,7 +127,7 @@ def start_game
   remove_pieces unless @pieces.nil?
   @board = Board.new
   @pieces = Array.new(CHECKERS_WIDTH) { Array.new(CHECKERS_HEIGHT) }
-  @game = Checkers.new(@first_player.text.downcase, @board, CPU_PLAYER, DIFFICULTY[@difficulty.text])
+  @game = Checkers.new(@first_player.text, @board, CPU_PLAYER, DIFFICULTY[@difficulty.text])
   draw_pieces
   @selected_piece = nil
   @message = "None"
@@ -182,17 +182,17 @@ Shoes.app(title: "Checkers", width: 850, height: 630, resizable: false) do
     if game_running?
       update_stats
       if @game.game_over?
-        @message = "WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER.upcase : HUMAN_PLAYER.upcase}"
-        alert("Game over\n\n WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER.upcase : HUMAN_PLAYER.upcase}\n\nBLACK SCORE:#{@game.score(CPU_PLAYER)}\nWHITE SCORE:#{@game.score(HUMAN_PLAYER)}")
-        # animate.stop
+        @message = "WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER : HUMAN_PLAYER}"
+        alert("Game over\n\n WINNER: #{(@game.score(CPU_PLAYER)>@game.score(HUMAN_PLAYER)) ? CPU_PLAYER : HUMAN_PLAYER}\n\nBLACK SCORE:#{@game.score(CPU_PLAYER)}\nWHITE SCORE:#{@game.score(HUMAN_PLAYER)}")
+        animate.stop
         @game_running = false
       end
       if @game.turn.eql?(HUMAN_PLAYER) && !@game.moves_available?(HUMAN_PLAYER)
-        @message = "no moves for #{HUMAN_PLAYER.upcase}"
+        @message = "no moves for #{HUMAN_PLAYER}"
         @game.switch_turn
       end
       if @game.turn.eql?(CPU_PLAYER) && !@game.moves_available?(CPU_PLAYER)
-        @message ="no moves for #{CPU_PLAYER.upcase}"
+        @message ="no moves for #{CPU_PLAYER}"
         @game.switch_turn
       end
       if @game.turn.eql?(CPU_PLAYER)

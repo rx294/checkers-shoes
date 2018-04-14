@@ -198,7 +198,7 @@ class Board
     # score = (pieces['black'].count - pieces['white'].count) if player.eql?('white')
     # score = (pieces['white'].count - pieces['black'].count) if player.eql?('black')
 
-    puts "#{player} utility score: #{score}"
+    # puts "#{player} utility score: #{score}"
     return 0 if score.zero?
     return  2000 if score > 0
     return -2000 if score < 0
@@ -207,21 +207,38 @@ class Board
   def evaluate(player)
     # @pieces[player].count - @pieces[other_player(player)].count
     score = 0
+    score1 = 0
+    score2 = 0
 
     # score1 = (pieces['black'].length*1 - pieces['white'].length)*100 if HEURISTIC1 && player.eql?('black')
     # score1 = (pieces['white'].length*1 - pieces['black'].length)*100 if HEURISTIC1 && player.eql?('white')
     # $score_1 << score1
 
-    score2 = (pieces['black'].length*50 - pieces['white'].length)*10 if HEURISTIC1 && player.eql?('black')
-    score2 = (pieces['white'].length*50 - pieces['black'].length)*10 if HEURISTIC1 && player.eql?('white')
-    $score_2 << score2
 
-    # score2 = 0
-    # pieces[player].each do |loc|
-    #   score2 += GRID_SCORE[loc[0]][loc[1]]*40
+    # score2 = (pieces['black'].length*1 - pieces['white'].length)*10 if HEURISTIC1 && player.eql?('black')
+    # score2 = (pieces['white'].length*1 - pieces['black'].length)*10 if HEURISTIC1 && player.eql?('white')
+
+    # if player.eql?('black')
+    #   score1 = (pieces[player].count - pieces[other_player(player)].count)*10
     # end
 
-    $score_2 << score2
+
+    if player.eql?('white')
+      score1 = (pieces[player].count - pieces[other_player(player)].count)*10
+
+      # pieces[player].each do |loc|
+      #   score2 += GRID_SCORE[loc[0]][loc[1]]
+      # end
+
+      # pieces[other_player(player)].each do |loc|
+      #   score2 -= GRID_SCORE[loc[0]][loc[1]]
+      # end
+      # score2 *= 1
+    end
+
+    
+
+    score = score1 + score2
 
     # # p score1
     # score2 = pieces['black'].map{ |x| (5-x[0])*(5-x[0]) }.inject(0, :+) - pieces['white'].map{ |x| x[0]*x[0] }.inject(0, :+) if HEURISTIC2 && player.eql?('black')
@@ -259,10 +276,10 @@ class Board
     # score += score_3 if player.eql?('black')
 
     # p score
-    # puts "#{player} evaluate score: #{score1}"
+    # puts "#{player} evaluate score: #{score2}"
     # return score2 if player.eql?('black')
     # return score1 if player.eql?('white')
-    score2
+    score
   end
 
 end
@@ -390,12 +407,12 @@ class Checkers
       # $stderr.puts "difficulty: #{@difficulty}"
       @ab_moves = {}
       value = a_b(@player)
-      $stderr.puts "Value: #{value}" #if AB_VERBOSE
+      # $stderr.puts "Value: #{value}" #if AB_VERBOSE
       # $stderr.puts "Move: #{current_move}"
       @chosen_move = @ab_moves[value].to_a.first#.sample
     # end
     # print_board(@board.state)
-    $stderr.puts "chosen_move: #{@chosen_move}" 
+    # $stderr.puts "chosen_move: #{@chosen_move}" 
 
     $stderr.puts "MAX DEPTH: #{@max_depth}"   if VERBOSE
     $stderr.puts "MAX NODES: #{@max_nodes}"   if VERBOSE
@@ -422,7 +439,7 @@ class Checkers
     # temp_board = Marshal.load( Marshal.dump(@board) )
     value = max_value(@board,-10000,10000,0,player)
     # p "hi am back"
-    puts @ab_moves #if AB_VERBOSE
+    # puts @ab_moves #if AB_VERBOSE
     value
   end
 
@@ -445,7 +462,7 @@ class Checkers
     end
     if depth >= @difficulty
       # p "==============================eval: #{board.evaluate(player)}" #if AB_VERBOSE
-      return board.evaluate(player)
+      return board.evaluate(@player)
     end
     value = -10000
     p board.moves(player) if AB_VERBOSE
@@ -478,7 +495,7 @@ class Checkers
     end
     if depth >= @difficulty
       # p "==============================eval: #{board.evaluate(player)}" #if AB_VERBOSE
-      return board.evaluate(player)
+      return board.evaluate(@player)
     end
     value = 10000
     # p board.moves(player)
@@ -515,56 +532,65 @@ end
 
 
 
-# black_win_count = 0
-# white_win_count = 0
-# draw = 0
-# (1..30).each do |x|
+black_win_count = 0
+white_win_count = 0
+draw = 0
+(1..10).each do |x|
 
-#   board = Board.new
-#   black = Checkers.new('black',board,'black',5)
+  board = Board.new
+  black = Checkers.new('black',board,'black',14)
+  white = Checkers.new('white',board,'white',14)
 
-#   white = Checkers.new('white',board,'white',5)
+# white.cpu_move
 
-# # white.cpu_move
+# black.cpu_move
 
-# # black.cpu_move
+  white.print_board(board.state)  if GAME_VERBOSE
 
-#   white.print_board(board.state)  if GAME_VERBOSE
+  while !(white.game_over? || black.game_over?)
 
-#   while !(white.game_over? || black.game_over?)
+    p board.moves('white') if GAME_VERBOSE
+    white.cpu_move if !board.moves('white').empty? 
+    print " WHITE ".colorize(:yellow) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
 
-#     p board.moves('white') if GAME_VERBOSE
-#     white.cpu_move if !board.moves('white').empty? 
-#     print " WHITE ".colorize(:yellow) if GAME_VERBOSE
-#     white.print_board(board.state) if GAME_VERBOSE
+    p board.moves('black') if GAME_VERBOSE
+    black.cpu_move if !board.moves('black').empty?
+    print " BLACK ".colorize(:red) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
+  end if x.even?
 
-#     p board.moves('black') if GAME_VERBOSE
-#     black.cpu_move if !board.moves('black').empty?
-#     print " BLACK ".colorize(:red) if GAME_VERBOSE
-#     white.print_board(board.state) if GAME_VERBOSE
+  while !(white.game_over? || black.game_over?)
 
-# end
-# puts "--------------------------------------------------------------------------------------------------------------"
-# puts "--------------------------------------------------------------------------------------------------------------"
-# puts "--------------------------------------------------------------------------------------------------------------"
-# puts "--------------------------------------------------------------------------------------------------------------"
+    p board.moves('black') if GAME_VERBOSE
+    black.cpu_move if !board.moves('black').empty?
+    print " BLACK ".colorize(:red) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
 
-#   puts "--------------Game over:--------------" if VERBOSE#{}" #{@game.score}" if VERBOSE
-#   puts "--------------white:#{white.score('white')}--------------"if VERBOSE
-#   puts "--------------black:#{black.score('black')}--------------" if VERBOSE
+    p board.moves('white') if GAME_VERBOSE
+    white.cpu_move if !board.moves('white').empty? 
+    print " WHITE ".colorize(:yellow) if GAME_VERBOSE
+    white.print_board(board.state) if GAME_VERBOSE
 
-#   white_win_count += 1 if (white.score('white') > black.score('black'))
-#   black_win_count += 1 if (black.score('black') > white.score('white'))
-#   draw += 1 if (white.score('white') == black.score('black'))
-# end
 
-# # # (1..20).each do |x|
-#   puts "white win #{white_win_count}"
-#   puts "black win #{black_win_count}"
-#   puts "draw win #{draw}"
+  end if x.odd?
+
+  puts "--------------Game over:--------------" if VERBOSE#{}" #{@game.score}" if VERBOSE
+  puts "--------------white:#{white.score('white')}--------------"if VERBOSE
+  puts "--------------black:#{black.score('black')}--------------" if VERBOSE
+
+  white_win_count += 1 if (white.score('white') > black.score('black'))
+  black_win_count += 1 if (black.score('black') > white.score('white'))
+  draw += 1 if (white.score('white') == black.score('black'))
+end
+
+# # (1..20).each do |x|
+  puts "white win #{white_win_count}"
+  puts "black win #{black_win_count}"
+  puts "draw win #{draw}"
 # # end
 
-# # # p max(1,2,4)
+# # p max(1,2,4)
 
 
 # p $score_1.minmax
