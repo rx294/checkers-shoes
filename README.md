@@ -1,2 +1,3 @@
-# checkers-shoes
-An AI Checkers game implemented using Alpha Beta Pruning algorithm &amp; Ruby/Ruby-shoes
+| Check          | Sub-check                                                                         | Who | Completion Date | Issue #'s |
+|----------------|-----------------------------------------------------------------------------------|-----|-----------------|-----------|
+| Logical checks| Proper profile directory structure|s|s|#1|
